@@ -33,46 +33,33 @@ namespace LocalizationWorker
 			Console.WriteLine ("Finished scanning all files.");
 			Console.WriteLine ("\n\n\n");
 
-			int totalCount = 0;
 			List<MatchItem> allUnits = new List<MatchItem> ();
 			for (int i = 0; i < allWorkingFiles.Count; i++) {
 				string file = allWorkingFiles [i];
 
-				List<MatchItem> units = new List<MatchItem> ();
-				totalCount += SearchFile (file, out units);
-				allUnits.AddRange (units);
+				SearchFile (file, allUnits);
 			}
 
-			string outputFile = @"/Users/hanwei/Desktop/sample/localization_output.txt";
+			string outputFile = @"/Users/hanwei/Desktop/sample/localization_output_cn.txt";
 			File.Delete (outputFile);
-
-			int multiItemCount = 0;
-			List<string> multiNames = new List<string> ();
 
 			for (int i = 0; i < allUnits.Count; i++) {
 				MatchItem imatch = allUnits [i];
-				string output = string.Format("kLocKey_{0}_LINE{1}_{2} \t= {3};",
-					imatch.fileName, imatch.lineNO, i + 1, imatch.value);
+//				string output = string.Format("{0} \t= {1}: {2}; NEW: {3}",
+//					imatch.keyString, i + 1, imatch.value, imatch.newValue);
+//				string output = string.Format("{0} \t= {1};",
+//					imatch.keyString, imatch.value);
+				string output = string.Format("{0} \t= {1} \t= {2};",
+					imatch.keyString, imatch.keyString, imatch.value);
+
 				Console.WriteLine(output);
-
-
-				foreach (MatchItem a in allUnits) {
-					if (a != imatch && a.value == imatch.value) {
-						multiItemCount++;
-						multiNames.Add (a.value);
-						break;
-					}
-				}
 
 				output += "\r\n";
 				File.AppendAllText(outputFile, output);
 			}
 
-			Console.WriteLine (string.Format("Finished searching all files, totalCount: {0}, multi: {1}.", 
-				totalCount.ToString(), multiItemCount.ToString()));
-
-			foreach (var str in multiNames)
-				Console.WriteLine (str);
+			Console.WriteLine (string.Format("Finished searching all files, totalCount: {0}.", 
+				allUnits.Count));
 		}
 
 		#region Scan files
@@ -109,66 +96,54 @@ namespace LocalizationWorker
 		#endregion
 
 		#region Searching 
-		int SearchFile(string filePath, out List<MatchItem> matchStrings)
+		int SearchFile(string filePath, List<MatchItem> existingMatches)
 		{
 			int count = 0;
-			matchStrings = new List<MatchItem> ();
 
-			Regex regex = new Regex ("@\"\\S{0,}\\p{IsCJKUnifiedIdeographs}{1,}[0-9]{0,}\"");
+			Regex regex = new Regex ("@\"\\S{0,}\\p{IsCJKUnifiedIdeographs}{1,}\\S{0,}\"");
 
-			FileInfo curFileInfo = new FileInfo (filePath);
-			string[] allLines = File.ReadAllLines (filePath);
-			for (int i = 0; i < allLines.Length; i++) {
-				string curLine = allLines [i];
+			string allText = File.ReadAllText (filePath);
 
-				Match match = regex.Match(curLine);
-				while (match.Success) {
-					// Handle match here...
-					count++;
+			Match match = regex.Match(allText);
+			while (match.Success) {
+				// Handle match here...
+				count++;
+				string mValue = match.Value;
 
-					//Console.WriteLine (string.Format ("{0} : {1}", count, match.Value));
-
-					MatchItem iMatch = new MatchItem ();
-					iMatch.fullPath = curFileInfo.FullName;
-					iMatch.fileName = curFileInfo.Name;
-					iMatch.lineNO = i;
-					iMatch.value = match.Value;
-
-					matchStrings.Add (iMatch);
-
-					match = match.NextMatch();
+				MatchItem iMatch = null;
+				foreach (MatchItem item in existingMatches) 
+				{
+					if (item.value == mValue) {
+						iMatch = item;
+						break;
+					}
 				}
+
+				if (iMatch == null) {
+					iMatch = new MatchItem ();
+					iMatch.keyString = string.Format("@\"kLocKey_{0}_{1}\"", Utilities.GetFileName(filePath), count);
+					iMatch.countNO = count;
+					iMatch.value = mValue;
+					iMatch.newValue = string.Format ("NSLocalizedString(@\"{0}\", nil)", iMatch.keyString);
+					existingMatches.Add (iMatch);
+				}
+
+				// starting write operation on code files.
+				// replace matched value with key string.
+
+				string fileContent = File.ReadAllText (filePath);
+				string newFileContent = fileContent.Replace (mValue, iMatch.newValue);
+
+				// Replace...
+//				using (StreamWriter newTask = new StreamWriter(filePath, false)){ 
+//					newTask.WriteLine(newFileContent);
+//				}
+
+
+				match = match.NextMatch();
 			}
 
 			return count;
-		}
-
-
-		// Deprecated.
-		public static List<string> GetComparedUnit(string sourceText, string startUnit, string endUnit)
-		{
-			List<string> result = new List<string> ();
-
-			int firstIndex = sourceText.IndexOf (startUnit);
-			while (firstIndex != -1) {
-				string newContent = sourceText.Substring (firstIndex + startUnit.Length,
-					sourceText.Length - firstIndex - startUnit.Length);
-
-				int endIndex = newContent.IndexOf (endUnit) + firstIndex + startUnit.Length;
-				if (endIndex != -1) {
-					string validUnit = sourceText.Substring (firstIndex, endIndex + endUnit.Length - firstIndex);
-					result.Add (validUnit);
-
-					sourceText = sourceText.Substring (endIndex + endUnit.Length, sourceText.Length - endIndex - endUnit.Length);
-					firstIndex = endIndex + endUnit.Length;
-
-				} else {
-					Console.WriteLine (string.Format("GetComparedUnit: invalid source text: [{0}]", sourceText));
-					firstIndex = -1;
-				}
-			}
-
-			return result;
 		}
 
 		#endregion
@@ -176,22 +151,22 @@ namespace LocalizationWorker
 
 	class MatchItem
 	{
-		public string fullPath {
+		public string keyString {
 			get;
 			set;
 		}
 
-		public string fileName {
-			get;
-			set;
-		}
-
-		public int lineNO {
+		public int countNO {
 			get;
 			set;
 		}
 
 		public string value {
+			get;
+			set;
+		}
+
+		public string newValue {
 			get;
 			set;
 		}
