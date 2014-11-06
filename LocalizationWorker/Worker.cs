@@ -72,9 +72,10 @@ namespace LocalizationWorker
 				SearchFile (file, allUnits);
 			}
 
-			string outputFile = @"localization_output.txt";
-			if (this.OutputPath != null)
+			string outputFile = "localization_output.txt";
+			if (!string.IsNullOrEmpty(this.OutputPath))
 				outputFile = this.OutputPath;
+
 			File.Delete (outputFile);
 
 			for (int i = 0; i < allUnits.Count; i++) {
@@ -182,9 +183,7 @@ namespace LocalizationWorker
 					string newFileContent = fileContent.Replace (mValue, iMatch.newValue);
 
 					// Replace...
-					using (StreamWriter newTask = new StreamWriter (filePath, false/* overwrite*/)) { 
-						newTask.WriteLine (newFileContent);
-					}
+					Utilities.ForceWriteFile (filePath, newFileContent);
 				}
 
 				match = match.NextMatch();

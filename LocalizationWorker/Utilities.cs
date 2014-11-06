@@ -17,6 +17,21 @@ namespace LocalizationWorker
 
 			return fileName;
 		}
+
+		public static bool ForceWriteFile(string filePath, string content)
+		{
+			try
+			{
+				using (StreamWriter newTask = new StreamWriter (filePath, false/* overwrite*/)) { 
+					newTask.WriteLine (content);
+				}
+			}
+			catch (Exception ex) {
+				Console.WriteLine (ex.ToString ());
+				return false;
+			}
+			return true;
+		}
 	}
 }
 
