@@ -6,8 +6,39 @@ using System.Text.RegularExpressions;
 
 namespace LocalizationWorker
 {
+	public enum WorkerAction {
+		SearchOnly,
+		SearchReplace
+	};
+
+	public enum WorkerFormat {
+		FormatKV,
+		FormatKKV
+	};
+
 	public class Worker
 	{
+		private WorkerAction _action;
+		public WorkerAction Action {
+			get { return _action; }
+			set { _action = value; }
+		}
+
+		private string _outputPath;
+		public string OutputPath{
+			get { return _outputPath; }
+			set { _outputPath = value; }
+		}
+
+		private WorkerFormat _outputFormat;
+		public WorkerFormat OutputFormat
+		{
+			get { return _outputFormat; }
+			set { _outputFormat = value; }
+		}
+
+		public static bool fVerbose = false;
+
 		string workingPath = "";
 		List<string> allWorkingFiles = new List<string> ();
 
@@ -27,11 +58,12 @@ namespace LocalizationWorker
 
 			GetDestinationFiles (workingPath);
 
-//			foreach (string item in allWorkingFiles)
-//				Console.WriteLine (item);
+			if (fVerbose) {
+				foreach (string item in allWorkingFiles)
+					Console.WriteLine (item);
+			}
 
 			Console.WriteLine ("Finished scanning all files.");
-			Console.WriteLine ("\n\n\n");
 
 			List<MatchItem> allUnits = new List<MatchItem> ();
 			for (int i = 0; i < allWorkingFiles.Count; i++) {
@@ -40,17 +72,29 @@ namespace LocalizationWorker
 				SearchFile (file, allUnits);
 			}
 
-			string outputFile = @"/Users/hanwei/Desktop/sample/localization_output_cn.txt";
+			string outputFile = @"localization_output.txt";
+			if (this.OutputPath != null)
+				outputFile = this.OutputPath;
 			File.Delete (outputFile);
 
 			for (int i = 0; i < allUnits.Count; i++) {
 				MatchItem imatch = allUnits [i];
 //				string output = string.Format("{0} \t= {1}: {2}; NEW: {3}",
 //					imatch.keyString, i + 1, imatch.value, imatch.newValue);
-//				string output = string.Format("{0} \t= {1};",
-//					imatch.keyString, imatch.value);
-				string output = string.Format("{0} \t= {1} \t= {2};",
-					imatch.keyString, imatch.keyString, imatch.value);
+				string output = "";
+
+				switch (this.OutputFormat)
+				{
+					case WorkerFormat.FormatKKV:
+						output = string.Format("{0} \t= {1} \t= {2};",
+							imatch.keyString, imatch.keyString, imatch.value);
+						break;
+					case WorkerFormat.FormatKV:
+					default:
+						output = string.Format("{0} \t= {1};",
+							imatch.keyString, imatch.value);
+						break;
+				}
 
 				Console.WriteLine(output);
 
@@ -65,7 +109,8 @@ namespace LocalizationWorker
 		#region Scan files
 		void GetDestinationFiles(string destDirPath)
 		{
-			//Console.WriteLine ("Found directory " + destDirPath);
+			if (fVerbose) 
+				Console.WriteLine ("Found directory " + destDirPath);
 
 			DirectoryInfo dirInfo = new DirectoryInfo (destDirPath);
 			if (!dirInfo.Exists)
@@ -121,24 +166,26 @@ namespace LocalizationWorker
 
 				if (iMatch == null) {
 					iMatch = new MatchItem ();
-					iMatch.keyString = string.Format("@\"kLocKey_{0}_{1}\"", Utilities.GetFileName(filePath), count);
+					iMatch.keyString = string.Format("\"kLocKey_{0}_{1}\"", Utilities.GetFileName(filePath), count);
 					iMatch.countNO = count;
 					iMatch.value = mValue;
 					iMatch.newValue = string.Format ("NSLocalizedString(@\"{0}\", nil)", iMatch.keyString);
 					existingMatches.Add (iMatch);
 				}
 
-				// starting write operation on code files.
-				// replace matched value with key string.
+				if (this.Action == WorkerAction.SearchReplace) {
 
-				string fileContent = File.ReadAllText (filePath);
-				string newFileContent = fileContent.Replace (mValue, iMatch.newValue);
+					// starting write operation on code files.
+					// replace matched value with key string.
 
-				// Replace...
-//				using (StreamWriter newTask = new StreamWriter(filePath, false)){ 
-//					newTask.WriteLine(newFileContent);
-//				}
+					string fileContent = File.ReadAllText (filePath);
+					string newFileContent = fileContent.Replace (mValue, iMatch.newValue);
 
+					// Replace...
+					using (StreamWriter newTask = new StreamWriter (filePath, false/* overwrite*/)) { 
+						newTask.WriteLine (newFileContent);
+					}
+				}
 
 				match = match.NextMatch();
 			}
