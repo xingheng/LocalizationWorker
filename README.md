@@ -9,4 +9,6 @@ OSX and [mono](http://www.mono-project.com/). Currently I just validated it in M
 
 ###How to use it?
 
-mono [-d|--dir] <your_project_directory_full_path> [-a|--action search|replace] [-o|--output <search_result_output_file>] [-f|--format kv|kkv] [-v|--verbose]
+Download the execute file from Builds folder and run the following command:
+
+	mono /path/to/LocalizationWorker.exe [-d|--dir] <your_project_directory_full_path> [-a|--action search|replace] [-o|--output <search_result_output_file>] [-f|--format kv|kkv] [-v|--verbose]
