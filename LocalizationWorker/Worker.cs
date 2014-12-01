@@ -170,7 +170,10 @@ namespace LocalizationWorker
 					iMatch.keyString = string.Format("\"kLocKey_{0}_{1}\"", Utilities.GetFileName(filePath), count);
 					iMatch.countNO = count;
 					iMatch.value = mValue;
-					iMatch.newValue = string.Format ("NSLocalizedString(@\"{0}\", nil)", iMatch.keyString);
+
+					// #define  LocalizedString(__keyString)	NSLocalizedString((__keyString), nil)
+
+					iMatch.newValue = string.Format ("LocalizedString(@{0})", iMatch.keyString);
 					existingMatches.Add (iMatch);
 				}
 
@@ -181,6 +184,11 @@ namespace LocalizationWorker
 
 					string fileContent = File.ReadAllText (filePath);
 					string newFileContent = fileContent.Replace (mValue, iMatch.newValue);
+
+					// THERE SHOULD BE A BUG ON MONO...
+					// After replacing the matche string, there is a newline character at the end of file content.
+					// 	so, drop it explicitly here!
+					newFileContent = newFileContent.Substring (0, newFileContent.Length - 1);
 
 					// Replace...
 					Utilities.ForceWriteFile (filePath, newFileContent);
